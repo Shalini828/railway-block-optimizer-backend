@@ -1,0 +1,6 @@
+priority_rank,task_id,asset_id,department,asset_type,risk_probability,risk_score,rule_based_score,ai_priority_score,priority_category
+1,T-AUTO-0001,AST-0001,ENGINEERING,Track,0.7511,75.11,89.3,80.78,HIGH
+2,T-AUTO-0003,AST-0003,TRD,OHE,0.6895,68.95,92.35,78.31,HIGH
+3,T-AUTO-0005,AST-0005,S&T,Point Machine,0.51,51.0,86.5,65.2,MEDIUM
+4,T-AUTO-0002,AST-0002,S&T,Signal,0.5962,59.62,61.65,60.43,MEDIUM
+5,T-AUTO-0004,AST-0004,ENGINEERING,Bridge,0.2977,29.77,46.3,36.38,LOW

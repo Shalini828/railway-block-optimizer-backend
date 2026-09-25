@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# ML generated models
+*.pkl
+
+# Generated ML outputs
+ml/*.csv
+
+# Environment
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/

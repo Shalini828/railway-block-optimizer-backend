@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 import psycopg
 import importlib
 import pkgutil
+import os
 
 from db_config import DB_CONFIG
 from auth.security import (
@@ -27,16 +28,26 @@ app = FastAPI(
 
 @app.get("/debug/db-user")
 def debug_db_user():
-    import os
 
-    db_user = os.getenv("DB_USER")
+    env_user = os.getenv("DB_USER")
+    config_user = DB_CONFIG.get("user")
 
     return {
-        "db_user_exists": db_user is not None,
-        "starts_with_postgres": db_user.startswith("postgres.") if db_user else False,
-        "uses_pooler_username_format": (
-            db_user.startswith("postgres.") and "." in db_user
-        ) if db_user else False,
+        "env_user_exists": env_user is not None,
+        "env_user_is_pooler_format": (
+            env_user.startswith("postgres.")
+            if env_user
+            else False
+        ),
+        "config_user_exists": config_user is not None,
+        "config_user_is_pooler_format": (
+            config_user.startswith("postgres.")
+            if config_user
+            else False
+        ),
+        "config_user_is_plain_postgres": (
+            config_user == "postgres"
+        ),
     }
 
 

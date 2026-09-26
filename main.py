@@ -25,6 +25,21 @@ app = FastAPI(
 )
 
 
+@app.get("/debug/db-user")
+def debug_db_user():
+    import os
+
+    db_user = os.getenv("DB_USER")
+
+    return {
+        "db_user_exists": db_user is not None,
+        "starts_with_postgres": db_user.startswith("postgres.") if db_user else False,
+        "uses_pooler_username_format": (
+            db_user.startswith("postgres.") and "." in db_user
+        ) if db_user else False,
+    }
+
+
 @app.exception_handler(RBACForbiddenException)
 async def rbac_forbidden_handler(request, exc: RBACForbiddenException):
     return JSONResponse(

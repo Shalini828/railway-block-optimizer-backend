@@ -6,7 +6,12 @@ import importlib
 import pkgutil
 
 from db_config import DB_CONFIG
-from auth.security import RBACForbiddenException, require_permission, get_current_user, CurrentUser
+from auth.security import (
+    RBACForbiddenException,
+    require_permission,
+    get_current_user,
+    CurrentUser,
+)
 
 
 # ============================================================
@@ -42,6 +47,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:8080",
         "http://127.0.0.1:8080",
+        "https://railway-block-optimizer-frontend.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -128,8 +134,13 @@ register_routers()
 # LEGACY MAINTENANCE TASKS ENDPOINT
 # ============================================================
 
-@app.get("/api/maintenance-tasks", dependencies=[Depends(require_permission("tasks.view"))])
-def get_maintenance_tasks(user: CurrentUser = Depends(get_current_user)):
+@app.get(
+    "/api/maintenance-tasks",
+    dependencies=[Depends(require_permission("tasks.view"))],
+)
+def get_maintenance_tasks(
+    user: CurrentUser = Depends(get_current_user),
+):
 
     connection = None
     cursor = None
@@ -140,7 +151,8 @@ def get_maintenance_tasks(user: CurrentUser = Depends(get_current_user)):
         cursor = connection.cursor()
 
         if user.scope != "network":
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT
                     task_id,
                     asset_id,
@@ -157,9 +169,12 @@ def get_maintenance_tasks(user: CurrentUser = Depends(get_current_user)):
                 FROM maintenance_tasks
                 WHERE UPPER(department) = %s
                 ORDER BY priority_score DESC NULLS LAST
-            """, (user.dept.upper(),))
+                """,
+                (user.dept.upper(),),
+            )
         else:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT
                     task_id,
                     asset_id,
@@ -175,7 +190,8 @@ def get_maintenance_tasks(user: CurrentUser = Depends(get_current_user)):
                     task_status
                 FROM maintenance_tasks
                 ORDER BY priority_score DESC NULLS LAST
-            """)
+                """
+            )
 
         rows = cursor.fetchall()
 

@@ -26,6 +26,10 @@ app = FastAPI(
 )
 
 
+# ============================================================
+# DEBUG: DATABASE USER CONFIGURATION
+# ============================================================
+
 @app.get("/debug/db-user")
 def debug_db_user():
 
@@ -51,8 +55,47 @@ def debug_db_user():
     }
 
 
+# ============================================================
+# DEBUG: DATABASE CONNECTION
+# ============================================================
+
+@app.get("/debug/db-connection")
+def debug_db_connection():
+
+    connection = None
+
+    try:
+
+        connection = psycopg.connect(**DB_CONFIG)
+
+        return {
+            "database_connection": "success",
+            "db_user_configured": True,
+        }
+
+    except Exception as exc:
+
+        return {
+            "database_connection": "failed",
+            "error_type": type(exc).__name__,
+            "error": str(exc),
+        }
+
+    finally:
+
+        if connection:
+            connection.close()
+
+
+# ============================================================
+# RBAC ERROR HANDLER
+# ============================================================
+
 @app.exception_handler(RBACForbiddenException)
-async def rbac_forbidden_handler(request, exc: RBACForbiddenException):
+async def rbac_forbidden_handler(
+    request,
+    exc: RBACForbiddenException,
+):
     return JSONResponse(
         status_code=403,
         content={
@@ -87,6 +130,7 @@ app.add_middleware(
 
 @app.get("/")
 def root():
+
     return {
         "status": "success",
         "message": "RailWise AI API is running",
@@ -95,6 +139,7 @@ def root():
 
 @app.get("/health")
 def health():
+
     return {
         "status": "healthy",
         "service": "RailWise AI API",
@@ -131,6 +176,7 @@ def register_routers():
             continue
 
         try:
+
             module = importlib.import_module(
                 f"routes.{module_name}"
             )
@@ -138,10 +184,12 @@ def register_routers():
             router = getattr(module, "router", None)
 
             if router is not None:
+
                 app.include_router(router)
                 registered.append(module_name)
 
         except Exception as exc:
+
             print(
                 f"[WARNING] Could not load router "
                 f"'routes.{module_name}': {exc}"
@@ -177,6 +225,7 @@ def get_maintenance_tasks(
         cursor = connection.cursor()
 
         if user.scope != "network":
+
             cursor.execute(
                 """
                 SELECT
@@ -198,7 +247,9 @@ def get_maintenance_tasks(
                 """,
                 (user.dept.upper(),),
             )
+
         else:
+
             cursor.execute(
                 """
                 SELECT

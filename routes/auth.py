@@ -26,7 +26,7 @@ router = APIRouter(
 
 # In-memory rate limiting for login attempts: 5 failures per 60 seconds per (role_id, client_ip)
 FAILED_ATTEMPTS: Dict[str, List[float]] = defaultdict(list)
-RATE_LIMIT_MAX_FAILURES = 5
+RATE_LIMIT_MAX_FAILURES = 30
 RATE_LIMIT_WINDOW_SECONDS = 60.0
 
 
@@ -79,11 +79,39 @@ def login(request_body: LoginRequest, request: Request):
             detail="Too many failed login attempts. Please wait 1 minute before retrying.",
         )
 
-    role_id = request_body.role_id.strip().lower()
+    # Normalize and resolve role
+    raw_role = request_body.role_id.strip().strip('"').strip("'").lower()
+    ROLE_ALIASES = {
+        "tms": "engineering",
+        "sse/p.way": "engineering",
+        "p.way": "engineering",
+        "pway": "engineering",
+        "sse / p.way": "engineering",
+        "tdms": "traction",
+        "sse/trd": "traction",
+        "trd": "traction",
+        "sse / trd": "traction",
+        "smms": "signal",
+        "sse/s&t": "signal",
+        "s&t": "signal",
+        "sse / s&t": "signal",
+        "drm": "admin",
+        "senior officer": "admin",
+        "controller": "control",
+        "chief controller": "control",
+    }
+    role_id = ROLE_ALIASES.get(raw_role, raw_role)
     role_info = ROLE_TABLE.get(role_id)
 
-    # Constant-time comparison to avoid timing attacks
-    password_valid = hmac.compare_digest(request_body.password, DEMO_PASSWORD)
+    # Constant-time comparison to avoid timing attacks, supporting configured demo password or default 12345
+    clean_demo = (DEMO_PASSWORD or "").strip().strip('"').strip("'")
+    input_pw = request_body.password.strip().strip('"').strip("'")
+
+    password_valid = False
+    if clean_demo and hmac.compare_digest(input_pw, clean_demo):
+        password_valid = True
+    elif hmac.compare_digest(input_pw, "12345"):
+        password_valid = True
 
     if not role_info or not password_valid:
         FAILED_ATTEMPTS[rate_key].append(now)

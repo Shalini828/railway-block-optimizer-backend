@@ -1,5 +1,8 @@
 from datetime import date, datetime
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 
 
 # ============================================================
@@ -56,15 +59,17 @@ def _days_between(start_date):
         start_date = start_date.date()
 
     if isinstance(start_date, str):
-        start_date = pd.to_datetime(
-            start_date,
-            errors="coerce"
-        )
-
-        if pd.isna(start_date):
-            return 0
-
-        start_date = start_date.date()
+        cleaned = start_date.strip().split("T")[0].split()[0]
+        try:
+            start_date = date.fromisoformat(cleaned)
+        except Exception:
+            if pd is not None:
+                start_date = pd.to_datetime(start_date, errors="coerce")
+                if pd.isna(start_date):
+                    return 0
+                start_date = start_date.date()
+            else:
+                return 0
 
     if isinstance(start_date, date):
         return max(

@@ -57,7 +57,8 @@ if not JWT_SECRET:
     )
 
 
-DEMO_PASSWORD = os.getenv("DEMO_PASSWORD", "12345")
+clean_demo = (os.getenv("DEMO_PASSWORD") or "").strip().strip('"').strip("'")
+DEMO_PASSWORD = clean_demo if clean_demo else "12345"
 
 TOKEN_TTL_MINUTES = int(
     os.getenv("TOKEN_TTL_MINUTES", "480")

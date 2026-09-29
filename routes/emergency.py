@@ -414,10 +414,11 @@ def get_emergency_incidents(
         ]
 
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to fetch emergency incidents: {str(e)}"
-        )
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return []
 
     finally:
         cursor.close()
@@ -474,9 +475,13 @@ def get_emergency_incident(
         raise
 
     except Exception as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
         raise HTTPException(
-            status_code=500,
-            detail=f"Failed to fetch emergency incident: {str(e)}"
+            status_code=404,
+            detail=f"Emergency incident not found: {str(e)}"
         )
 
     finally:

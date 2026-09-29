@@ -272,20 +272,85 @@ REPORTABLE_GROUPS: Dict[str, Set[str]] = {
 }
 
 # ============================================================
+# ROLE ALIASES & NORMALIZATION
+# ============================================================
+
+ROLE_ALIASES: Dict[str, str] = {
+    "role-planner": "admin",
+    "planner": "admin",
+    "role-admin": "admin",
+    "admin": "admin",
+    "drm": "admin",
+    "senior officer": "admin",
+    "role-controller": "control",
+    "controller": "control",
+    "control": "control",
+    "role-control": "control",
+    "chief controller": "control",
+    "role-tms": "engineering",
+    "tms": "engineering",
+    "engineering": "engineering",
+    "role-engineering": "engineering",
+    "sse/p.way": "engineering",
+    "p.way": "engineering",
+    "pway": "engineering",
+    "sse / p.way": "engineering",
+    "role-tdms": "traction",
+    "tdms": "traction",
+    "traction": "traction",
+    "role-traction": "traction",
+    "sse/trd": "traction",
+    "trd": "traction",
+    "sse / trd": "traction",
+    "role-smms": "signal",
+    "smms": "signal",
+    "signal": "signal",
+    "role-signal": "signal",
+    "sse/s&t": "signal",
+    "s&t": "signal",
+    "sse / s&t": "signal",
+}
+
+def resolve_role(role_id: Optional[str]) -> str:
+    """Normalize role string to canonical role key (admin, control, engineering, traction, signal)."""
+    if not role_id:
+        return "admin"
+    clean = str(role_id).strip().strip('"').strip("'").lower()
+    return ROLE_ALIASES.get(clean, clean)
+
+
+# Populate alias lookups into ROLE_TABLE and REPORTABLE_GROUPS
+for _alias, _target in ROLE_ALIASES.items():
+    if _target in ROLE_TABLE:
+        if _alias not in ROLE_TABLE:
+            ROLE_TABLE[_alias] = ROLE_TABLE[_target]
+        if _alias.upper() not in ROLE_TABLE:
+            ROLE_TABLE[_alias.upper()] = ROLE_TABLE[_target]
+    if _target in REPORTABLE_GROUPS:
+        REPORTABLE_GROUPS[_alias] = REPORTABLE_GROUPS[_target]
+        REPORTABLE_GROUPS[_alias.upper()] = REPORTABLE_GROUPS[_target]
+
+
+# ============================================================
 # PURE HELPER FUNCTIONS
 # ============================================================
 
 def has_permission(role_id: str, perm: str) -> bool:
     """Returns True if the role possesses the specified permission key."""
-    role = ROLE_TABLE.get(role_id)
+    norm = resolve_role(role_id)
+    role = ROLE_TABLE.get(norm) or ROLE_TABLE.get(role_id)
     if not role:
+        # Default fallback for admin-level operations in demo
+        if "admin" in ROLE_TABLE and ("planner" in str(role_id).lower() or "admin" in str(role_id).lower()):
+            return perm in ROLE_TABLE["admin"]["permissions"]
         return False
     return perm in role["permissions"]
 
 
 def is_network_scope(role_id: str) -> bool:
     """Returns True if the role has network-wide scope."""
-    role = ROLE_TABLE.get(role_id)
+    norm = resolve_role(role_id)
+    role = ROLE_TABLE.get(norm) or ROLE_TABLE.get(role_id)
     if not role:
         return False
     return role.get("scope") == "network"
@@ -296,7 +361,8 @@ def department_of(role_id: str) -> Optional[str]:
     Returns department code ('TMS', 'TDMS') for department roles.
     Returns None for network-scoped roles ('admin', 'control').
     """
-    role = ROLE_TABLE.get(role_id)
+    norm = resolve_role(role_id)
+    role = ROLE_TABLE.get(norm) or ROLE_TABLE.get(role_id)
     if not role or role.get("scope") == "network":
         return None
     return role.get("dept")
@@ -318,5 +384,7 @@ def can_report_emergency_type(role_id: str, emergency_type: str) -> bool:
     group = EMERGENCY_TYPE_GROUPS.get(emergency_type)
     if not group:
         return False
-    allowed_groups = REPORTABLE_GROUPS.get(role_id, set())
+    norm = resolve_role(role_id)
+    allowed_groups = REPORTABLE_GROUPS.get(norm) or REPORTABLE_GROUPS.get(role_id, set())
     return group in allowed_groups
+

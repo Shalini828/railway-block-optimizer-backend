@@ -48,6 +48,41 @@ def ensure_database_schema():
         connection = psycopg.connect(**DB_CONFIG)
         with connection.cursor() as cur:
             cur.execute("""
+                CREATE TABLE IF NOT EXISTS public.emergency_incidents (
+                    incident_id VARCHAR(50) PRIMARY KEY,
+                    emergency_type VARCHAR(100) NOT NULL DEFAULT 'Other Critical Hazard',
+                    incident_type VARCHAR(100),
+                    section VARCHAR(100),
+                    section_id VARCHAR(50),
+                    corridor_id VARCHAR(50),
+                    line VARCHAR(50),
+                    severity INT DEFAULT 1,
+                    incident_date DATE DEFAULT CURRENT_DATE,
+                    reported_time TIME DEFAULT CURRENT_TIME,
+                    estimated_resolution_min INT DEFAULT 60,
+                    description TEXT,
+                    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    status VARCHAR(50) DEFAULT 'ACTIVE',
+                    control_notified BOOLEAN DEFAULT FALSE,
+                    traffic_protection_status VARCHAR(50) DEFAULT 'PENDING',
+                    reported_by VARCHAR(50),
+                    resolved_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+
+                ALTER TABLE IF EXISTS public.emergency_incidents
+                    ADD COLUMN IF NOT EXISTS emergency_type VARCHAR(100) DEFAULT 'Other Critical Hazard',
+                    ADD COLUMN IF NOT EXISTS incident_type VARCHAR(100),
+                    ADD COLUMN IF NOT EXISTS section VARCHAR(100),
+                    ADD COLUMN IF NOT EXISTS line VARCHAR(50),
+                    ADD COLUMN IF NOT EXISTS severity INT DEFAULT 1,
+                    ADD COLUMN IF NOT EXISTS started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'ACTIVE',
+                    ADD COLUMN IF NOT EXISTS control_notified BOOLEAN DEFAULT FALSE,
+                    ADD COLUMN IF NOT EXISTS traffic_protection_status VARCHAR(50) DEFAULT 'PENDING',
+                    ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMP,
+                    ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
                 CREATE TABLE IF NOT EXISTS public.optimization_history (
                     history_id BIGSERIAL PRIMARY KEY,
                     run_timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -60,7 +95,20 @@ def ensure_database_schema():
 
                 ALTER TABLE IF EXISTS public.optimized_blocks
                     ADD COLUMN IF NOT EXISTS approved_by VARCHAR(150),
-                    ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
+                    ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ,
+                    ADD COLUMN IF NOT EXISTS block_status VARCHAR(30) DEFAULT 'PENDING',
+                    ADD COLUMN IF NOT EXISTS ai_decision_confidence JSONB,
+                    ADD COLUMN IF NOT EXISTS ai_reasons JSONB,
+                    ADD COLUMN IF NOT EXISTS ai_explanation JSONB;
+
+                ALTER TABLE IF EXISTS public.block_requests
+                    ADD COLUMN IF NOT EXISTS review_status VARCHAR(30) DEFAULT 'PENDING',
+                    ADD COLUMN IF NOT EXISTS reviewed_by VARCHAR(150),
+                    ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ,
+                    ADD COLUMN IF NOT EXISTS rejection_reason TEXT,
+                    ADD COLUMN IF NOT EXISTS submitted_date DATE,
+                    ADD COLUMN IF NOT EXISTS criticality VARCHAR(30),
+                    ADD COLUMN IF NOT EXISTS safety_risk VARCHAR(30);
 
                 CREATE TABLE IF NOT EXISTS public.block_review_events (
                     event_id BIGSERIAL PRIMARY KEY,
@@ -110,6 +158,26 @@ def ensure_database_schema():
 
 # Run migration on startup
 ensure_database_schema()
+
+
+from fastapi import Request
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
+    traceback.print_exc()
+    origin = request.headers.get("origin")
+    allowed = origin if origin else "*"
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc), "status": "error"},
+        headers={
+            "Access-Control-Allow-Origin": allowed,
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        },
+    )
 
 
 # ============================================================

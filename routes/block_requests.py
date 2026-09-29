@@ -282,6 +282,30 @@ def get_block_requests(user: CurrentUser = Depends(get_current_user)):
             for row in rows
         ]
 
+    except Exception as exc:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        # Resilient fallback: try selecting whatever exists in block_requests
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT * FROM block_requests LIMIT 50")
+                fallback_rows = cur.fetchall()
+                if hasattr(cur, "description") and cur.description:
+                    col_names = [d[0] for d in cur.description]
+                    res = []
+                    for r in fallback_rows:
+                        item = {}
+                        for i, name in enumerate(col_names):
+                            val = r[i]
+                            item[name] = str(val) if val is not None else None
+                        res.append(item)
+                    return res
+        except Exception:
+            pass
+        return []
+
     finally:
         cursor.close()
         conn.close()

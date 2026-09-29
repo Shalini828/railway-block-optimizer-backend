@@ -269,28 +269,53 @@ def get_optimized_plan(
             # ------------------------------------------------
             # Fetch optimized blocks
             # ------------------------------------------------
-            cursor.execute("""
-                
-                SELECT
-                    block_id,
-                    corridor_id,
-                    block_date,
-                    start_time,
-                    end_time,
-                    duration_min,
-                    utilization_percent,
-                    train_impact_score,
-                    number_of_tasks,
-                    number_of_departments,
-                    optimization_score,
-                    block_status,
-                    approved_by,
-                    approved_at
-                FROM optimized_blocks
-                ORDER BY block_date, start_time
-            """)
-
-            blocks = cursor.fetchall()
+            try:
+                cursor.execute("""
+                    SELECT
+                        block_id,
+                        corridor_id,
+                        block_date,
+                        start_time,
+                        end_time,
+                        duration_min,
+                        utilization_percent,
+                        train_impact_score,
+                        number_of_tasks,
+                        number_of_departments,
+                        optimization_score,
+                        block_status,
+                        approved_by,
+                        approved_at
+                    FROM optimized_blocks
+                    ORDER BY block_date, start_time
+                """)
+                blocks = cursor.fetchall()
+            except Exception:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+                cursor.execute("""
+                    SELECT
+                        block_id,
+                        corridor_id,
+                        block_date,
+                        start_time,
+                        end_time,
+                        duration_min,
+                        utilization_percent,
+                        train_impact_score,
+                        number_of_tasks,
+                        number_of_departments,
+                        optimization_score,
+                        block_status
+                    FROM optimized_blocks
+                    ORDER BY block_date, start_time
+                """)
+                blocks = cursor.fetchall()
+                for b in blocks:
+                    b["approved_by"] = None
+                    b["approved_at"] = None
 
             # ------------------------------------------------
             # Count BDMS requests represented in the saved plan

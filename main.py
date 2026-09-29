@@ -39,8 +39,86 @@ async def rbac_forbidden_handler(request, exc: RBACForbiddenException):
 
 
 # ============================================================
+# DATABASE AUTO-MIGRATION (SAFE & IDEMPOTENT)
+# ============================================================
+
+def ensure_database_schema():
+    connection = None
+    try:
+        connection = psycopg.connect(**DB_CONFIG)
+        with connection.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS public.optimization_history (
+                    history_id BIGSERIAL PRIMARY KEY,
+                    run_timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    blocks_generated INT DEFAULT 0,
+                    total_train_impact NUMERIC(8,2) DEFAULT 0,
+                    execution_time_ms NUMERIC(10,2) DEFAULT 0,
+                    optimization_score NUMERIC(7,2) DEFAULT 0,
+                    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+                );
+
+                ALTER TABLE IF EXISTS public.optimized_blocks
+                    ADD COLUMN IF NOT EXISTS approved_by VARCHAR(150),
+                    ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
+
+                CREATE TABLE IF NOT EXISTS public.block_review_events (
+                    event_id BIGSERIAL PRIMARY KEY,
+                    block_id VARCHAR(30) NOT NULL,
+                    actor_role VARCHAR(30) NOT NULL,
+                    actor_name VARCHAR(150),
+                    actor_dept VARCHAR(20),
+                    action VARCHAR(40) NOT NULL,
+                    note TEXT,
+                    payload JSONB,
+                    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE TABLE IF NOT EXISTS public.audit_log (
+                    audit_id BIGSERIAL PRIMARY KEY,
+                    ts TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    actor_role VARCHAR(30),
+                    actor_name VARCHAR(150),
+                    method VARCHAR(10),
+                    path TEXT,
+                    action VARCHAR(60),
+                    target_type VARCHAR(40),
+                    target_id VARCHAR(60),
+                    outcome VARCHAR(10),
+                    detail JSONB
+                );
+
+                ALTER TABLE IF EXISTS public.special_train_services
+                    ADD COLUMN IF NOT EXISTS origin_station VARCHAR(100),
+                    ADD COLUMN IF NOT EXISTS destination_station VARCHAR(100),
+                    ADD COLUMN IF NOT EXISTS created_by VARCHAR(150),
+                    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
+
+                CREATE SEQUENCE IF NOT EXISTS special_train_seq START 1;
+            """)
+            connection.commit()
+            print("[INFO] Database schema migration verified successfully.")
+            return {"status": "success", "message": "Schema migration applied."}
+    except Exception as exc:
+        print(f"[WARNING] Database schema auto-migration check: {exc}")
+        return {"status": "error", "message": str(exc)}
+    finally:
+        if connection:
+            connection.close()
+
+
+# Run migration on startup
+ensure_database_schema()
+
+
+# ============================================================
 # DEBUG: DATABASE USER & CONNECTION (FOR VERCEL DEPLOYMENT)
 # ============================================================
+
+@app.get("/debug/migrate")
+def debug_migrate():
+    return ensure_database_schema()
 
 @app.get("/debug/db-user")
 def debug_db_user():

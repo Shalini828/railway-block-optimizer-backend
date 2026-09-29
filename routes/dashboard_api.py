@@ -335,34 +335,44 @@ def get_dashboard_kpis(user: CurrentUser = Depends(get_current_user)):
         # 5. OPTIMIZATION HISTORY
         # ====================================================
 
-        with conn.cursor() as cur:
-
-            cur.execute("""
-                SELECT
-                    COUNT(*) AS optimization_runs,
-                    COALESCE(
-                        SUM(blocks_generated),
-                        0
-                    ) AS blocks_generated,
-                    COALESCE(
-                        SUM(total_train_impact),
-                        0
-                    ) AS total_train_impact
-                FROM public.optimization_history
-            """)
-
-            history_row = cur.fetchone()
+        history_row = None
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT
+                        COUNT(*) AS optimization_runs,
+                        COALESCE(
+                            SUM(blocks_generated),
+                            0
+                        ) AS blocks_generated,
+                        COALESCE(
+                            SUM(total_train_impact),
+                            0
+                        ) AS total_train_impact
+                    FROM public.optimization_history
+                """)
+                history_row = cur.fetchone()
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            history_row = {
+                "optimization_runs": 0,
+                "blocks_generated": 0,
+                "total_train_impact": 0,
+            }
 
         optimization_runs = int(
-            history_row["optimization_runs"] or 0
+            (history_row["optimization_runs"] if history_row else 0) or 0
         )
 
         history_blocks_generated = int(
-            history_row["blocks_generated"] or 0
+            (history_row["blocks_generated"] if history_row else 0) or 0
         )
 
         history_train_impact = safe_number(
-            history_row["total_train_impact"],
+            history_row["total_train_impact"] if history_row else 0,
             0
         )
 

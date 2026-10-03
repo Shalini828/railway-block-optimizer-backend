@@ -17,3 +17,5 @@ ml/*.csv
 # IDE
 .vscode/
 .idea/
+.vercel
+.env*
